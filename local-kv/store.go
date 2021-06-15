@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	jt "github.com/cdutwhu/json-tool"
+	jt "github.com/digisan/json-tool"
 	fd "github.com/digisan/gotk/filedir"
 	"github.com/digisan/gotk/io"
 	"github.com/digisan/gotk/slice/ts"
