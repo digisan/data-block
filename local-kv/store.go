@@ -239,14 +239,6 @@ func (opt *Option) Fac4SaveWithIdxKey(start int) func(value string) {
 
 func (opt *Option) SaveWithTSKey(value string) {
 	opt.batchSave(time.Now().Format("2006-01-02 15:04:05.000000"), value, false)
-
-	// current := time.Now()
-	// // StampMicro
-	// fmt.Println("yyyy-mm-dd HH:mm:ss: ", current.Format("2006-01-02 15:04:05.000000"))
-	// // yyyy-mm-dd HH:mm:ss:  2016-09-02 15:53:07.159994
-	// // StampNano
-	// fmt.Println("yyyy-mm-dd HH:mm:ss: ", current.Format("2006-01-02 15:04:05.000000000"))
-	// // yyyy-mm-dd HH:mm:ss:  2016-09-02 15:53:07.159994437
 }
 
 func (opt *Option) SaveWithIDKey(value string) {
