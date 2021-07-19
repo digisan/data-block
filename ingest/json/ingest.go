@@ -1,10 +1,9 @@
 package json
 
 import (
-	"fmt"
 	"io"
 
-	lckv "github.com/digisan/data-block/local-kv"
+	"github.com/digisan/data-block/store"
 	jt "github.com/digisan/json-tool"
 	lk "github.com/digisan/logkit"
 )
@@ -17,7 +16,8 @@ func fac4solver() func(existing, coming interface{}) (bool, interface{}) {
 
 var (
 	warn = lk.Fac4GrpIdxLogF("INGEST", 0, lk.WARN, false)
-	opt  = lckv.NewOption("../tuples", "", fac4solver, true, true)
+	kv   = store.NewKV("dump/S", "json", true, true, fac4solver)
+	spo  = store.NewSPO("dump")
 )
 
 func init() {
@@ -25,7 +25,6 @@ func init() {
 }
 
 func FlattenStore(r io.Reader) {
-
 	results, _ := jt.ScanObject(r, false, true, jt.OUT_MIN)
 	for rst := range results {
 		if rst.Err != nil {
@@ -36,8 +35,10 @@ func FlattenStore(r io.Reader) {
 		if err != nil {
 			warn("%v", err)
 		}
+		id := m["glossary.id"].(string) // gjson.Get(json, "glossary.id").String()
 		for k, v := range m {
-			opt.Save(k, fmt.Sprint(v), true)
+			spo.Save(id, k, v)
 		}
+		kv.Save(id, rst.Obj, true)
 	}
 }
