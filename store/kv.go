@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/digisan/data-block/store/impl"
 	fd "github.com/digisan/gotk/filedir"
 	"github.com/digisan/gotk/io"
 	"github.com/digisan/gotk/slice/ti"
@@ -19,24 +19,16 @@ import (
 	"github.com/google/uuid"
 )
 
-type (
-	Fac4Solver func() func(existing, coming interface{}) (bool, interface{})
+type KVStorage struct {
+	length     int                                                    // storage count
+	cChanged   chan int                                               // if length changed, notify updated length
+	cUnchanged chan int                                               // if length has not changed for a while, notify length
+	dir, ext   string                                                 // file directory & file extension
+	OnConflict func(existing, coming interface{}) (bool, interface{}) // conflict solver for file
+	kvs        []impl.Ikv
+}
 
-	KVStorage struct {
-		onConflict [3]func(existing, coming interface{}) (bool, interface{}) // conflict solvers
-
-		length     int      // storage count
-		cChanged   chan int // if length changed, notify updated length
-		cUnchanged chan int // if length has not changed for a while, notify length
-
-		dir, ext string                      // file directory & file extension
-		M        map[interface{}]interface{} // map
-		SM       *sync.Map                   // sync map ptr
-		// more ...
-	}
-)
-
-func NewKV(dir, ext string, wantM, wantSM bool, fac4solver Fac4Solver) *KVStorage {
+func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 
 	const N = 10000
 
@@ -49,26 +41,15 @@ func NewKV(dir, ext string, wantM, wantSM bool, fac4solver Fac4Solver) *KVStorag
 	if dir != "" {
 		kv.dir = dir
 		kv.ext = ext
-		if fac4solver != nil {
-			kv.onConflict[0] = fac4solver()
-		}
 	}
 
 	if wantM {
-		kv.M = map[interface{}]interface{}{}
-		if fac4solver != nil {
-			kv.onConflict[1] = fac4solver()
-		}
+		kv.kvs = append(kv.kvs, &impl.M{})
 	}
 
 	if wantSM {
-		kv.SM = &sync.Map{}
-		if fac4solver != nil {
-			kv.onConflict[2] = fac4solver()
-		}
+		kv.kvs = append(kv.kvs, &impl.SM{})
 	}
-
-	// more ...
 
 	return kv
 }
@@ -137,46 +118,6 @@ func (kv *KVStorage) fileFetch(key interface{}, repeatIdx bool) (string, bool) {
 
 // ----------------------- //
 
-func (kv *KVStorage) m(key, value interface{}) bool {
-	if kv.M != nil {
-		kv.M[key] = value
-		return true
-	}
-	return false
-}
-
-func (kv *KVStorage) mFetch(key interface{}) (interface{}, bool) {
-	if kv.M != nil {
-		if value, ok := kv.M[key]; ok {
-			return value, ok
-		}
-	}
-	return nil, false
-}
-
-// ----------------------- //
-
-func (kv *KVStorage) sm(key, value interface{}) bool {
-	if kv.SM != nil {
-		kv.SM.Store(key, value)
-		return true
-	}
-	return false
-}
-
-func (kv *KVStorage) smFetch(key interface{}) (interface{}, bool) {
-	if kv.SM != nil {
-		if value, ok := kv.SM.Load(key); ok {
-			return value, ok
-		}
-	}
-	return nil, false
-}
-
-// more save / get func ...
-
-// ----------------------- //
-
 func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 
 	// no key, no saving
@@ -189,7 +130,7 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 		done  = make(chan bool)
 	)
 
-	if solver := kv.onConflict[0]; solver != nil {
+	if solver := kv.OnConflict; solver != nil {
 		if str, ok := kv.fileFetch(key, repeatIdx); ok { // conflicts
 			if save, content := solver(str, value); save {
 				switch cont := content.(type) {
@@ -203,7 +144,7 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 					panic("solver error unimplemented")
 				}
 			}
-			goto M
+			goto OTHERS
 		}
 	}
 	if kv.file(key, fmt.Sprint(value), repeatIdx) && !added {
@@ -212,46 +153,26 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 		added = <-done
 	}
 
-M:
-	if solver := kv.onConflict[1]; solver != nil {
-		if str, ok := kv.mFetch(key); ok { // conflicts
-			if save, content := solver(str, value); save {
-				if kv.m(key, content) && !added {
+	/////////////////////
+
+OTHERS:
+	for _, s := range kv.kvs {
+		if v, ok := s.Get(key); ok { // conflicts
+			if save, content := s.OnConflict(v, value); save {
+				if s.Set(key, content) && !added {
 					kv.length++
 					go func() { kv.cChanged <- kv.length; done <- true }()
 					added = <-done
 				}
 			}
-			goto SM
-		}
-	}
-	if kv.m(key, value) && !added {
-		kv.length++
-		go func() { kv.cChanged <- kv.length; done <- true }()
-		added = <-done
-	}
-
-SM:
-	if solver := kv.onConflict[2]; solver != nil {
-		if str, ok := kv.smFetch(key); ok { // conflicts
-			if save, content := solver(str, value); save {
-				if kv.sm(key, content) && !added {
-					kv.length++
-					go func() { kv.cChanged <- kv.length; done <- true }()
-					added = <-done
-				}
+		} else { // no conflicts
+			if s.Set(key, value) && !added {
+				kv.length++
+				go func() { kv.cChanged <- kv.length; done <- true }()
+				added = <-done
 			}
-			goto NEXT
 		}
 	}
-	if kv.sm(key, value) && !added {
-		kv.length++
-		go func() { kv.cChanged <- kv.length; done <- true }()
-		added = <-done
-	}
-
-	// ... more
-NEXT:
 
 	return added
 }
@@ -345,8 +266,9 @@ func (kv *KVStorage) FileSyncToMap() int {
 			key := fname[:strings.IndexAny(fname, "(.")]
 			if bytes, err := os.ReadFile(e); err == nil {
 				value := string(bytes)
-				kv.m(key, value)
-				kv.sm(key, value)
+				for _, s := range kv.kvs {
+					s.Set(key, value)
+				}
 			} else {
 				log.Fatalln(err)
 			}
@@ -362,13 +284,9 @@ func (kv *KVStorage) Clear(rmPersistent bool) {
 		if fd.DirExists(kv.dir) {
 			os.RemoveAll(kv.dir)
 		}
-		// more ...
 	}
-	if kv.M != nil {
-		kv.M = make(map[interface{}]interface{})
-	}
-	if kv.SM != nil {
-		kv.SM = &sync.Map{}
+	for _, s := range kv.kvs {
+		s.Clear()
 	}
 }
 

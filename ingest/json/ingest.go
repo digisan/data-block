@@ -16,7 +16,7 @@ func fac4solver() func(existing, coming interface{}) (bool, interface{}) {
 
 var (
 	warn = lk.Fac4GrpIdxLogF("INGEST", 0, lk.WARN, false)
-	kv   = store.NewKV("dump/S", "json", true, true, fac4solver)
+	kv   = store.NewKV("dump/S", "json", true, true)
 	spo  = store.NewSPO("dump")
 )
 

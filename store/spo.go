@@ -35,16 +35,16 @@ type (
 
 var (
 	spoDumpDir string
-	onConflict = func() func(existing, coming interface{}) (bool, interface{}) {
-		return func(existing, coming interface{}) (bool, interface{}) {
-			return true, fmt.Sprintf("%v\n%v", existing, coming)
-		}
+	onConflict = func(existing, coming interface{}) (bool, interface{}) {
+		return true, fmt.Sprintf("%v\n%v", existing, coming)
 	}
 )
 
 func NewSPO(dir string) *SPOV {
 	spoDumpDir = dir
-	return &SPOV{version: 0, kv: NewKV(spoDumpDir, "", false, false, onConflict)}
+	spov := &SPOV{version: 0, kv: NewKV(spoDumpDir, "", false, false)}
+	spov.kv.OnConflict = onConflict
+	return spov
 }
 
 func (spov *SPOV) pso() int64 {

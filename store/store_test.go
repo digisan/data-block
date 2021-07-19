@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/digisan/data-block/store/impl"
 )
 
 func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
@@ -28,9 +30,13 @@ func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
 }
 
 func TestSave(t *testing.T) {
-	kv := NewKV("./test_out", "", false, false, nil)
+
+	kv := NewKV("./test_out", "", true, true)
+	kv.OnConflict = func(existing, coming interface{}) (bool, interface{}) {
+		return true, fmt.Sprintf("%v\n%v", existing, coming)
+	}
 	kv.Save("1", "test111", true)
-	kv.Save("2", "test222", true)
+	kv.Save("1", "test222", true)
 	kv.Save(2, 123, true)
 	kv.SaveWithIDKey(1234)
 	kv.SaveWithTSKey(2234)
@@ -43,7 +49,7 @@ func TestSave(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		for cnt := range kv.UnchangedNotifier(1000, false, done) {
+		for cnt := range kv.UnchangedNotifier(900, false, done) {
 			fmt.Println(" --- ", cnt)
 		}
 	}()
@@ -54,6 +60,9 @@ func TestSave(t *testing.T) {
 	}()
 
 	time.Sleep(10 * time.Second)
+
+	fmt.Println(kv.kvs[0].Get("1"))
+	fmt.Println(kv.kvs[1].Get(2))
 }
 
 // func TestKVStorage_FileSyncToMap(t *testing.T) {
@@ -67,3 +76,8 @@ func TestSave(t *testing.T) {
 // 	kv := NewKV("../in1", "json", fac4AppendJA, true, true)
 // 	kv.AppendJSONFromFile("../in")
 // }
+
+func TestClear(t *testing.T) {
+	m := impl.NewM()
+	m.Set(1, 2)
+}
