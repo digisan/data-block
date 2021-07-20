@@ -65,8 +65,8 @@ func TestSave(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	fmt.Println(kv.kvs[0].Get("1"))
-	fmt.Println(kv.kvs[1].Get(2))
+	fmt.Println(kv.KVs[0].Get("1"))
+	fmt.Println(kv.KVs[1].Get(2))
 }
 
 // func TestKVStorage_FileSyncToMap(t *testing.T) {

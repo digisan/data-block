@@ -25,7 +25,7 @@ type KVStorage struct {
 	cUnchanged chan int                                               // if length has not changed for a while, notify length
 	dir, ext   string                                                 // file directory & file extension
 	OnConflict func(existing, coming interface{}) (bool, interface{}) // conflict solver for file
-	kvs        []impl.Ikv
+	KVs        []impl.Ikv
 }
 
 func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
@@ -44,11 +44,11 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 	}
 
 	if wantM {
-		kv.kvs = append(kv.kvs, &impl.M{})
+		kv.KVs = append(kv.KVs, &impl.M{})
 	}
 
 	if wantSM {
-		kv.kvs = append(kv.kvs, &impl.SM{})
+		kv.KVs = append(kv.KVs, &impl.SM{})
 	}
 
 	return kv
@@ -156,7 +156,7 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 	/////////////////////
 
 OTHERS:
-	for _, s := range kv.kvs {
+	for _, s := range kv.KVs {
 		if v, ok := s.Get(key); ok { // conflicts
 			if save, content := s.OnConflict(v, value); save {
 				if s.Set(key, content) && !added {
@@ -272,7 +272,7 @@ func (kv *KVStorage) FileSyncToMap() int {
 			key := fname[:strings.IndexAny(fname, "(.")]
 			if bytes, err := os.ReadFile(e); err == nil {
 				value := string(bytes)
-				for _, s := range kv.kvs {
+				for _, s := range kv.KVs {
 					s.Set(key, value)
 				}
 			} else {
@@ -291,7 +291,7 @@ func (kv *KVStorage) Clear(rmPersistent bool) {
 			os.RemoveAll(kv.dir)
 		}
 	}
-	for _, s := range kv.kvs {
+	for _, s := range kv.KVs {
 		s.Clear()
 	}
 }
