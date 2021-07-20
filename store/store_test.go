@@ -49,15 +49,19 @@ func TestSave(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		for cnt := range kv.UnchangedNotifier(900, false, done) {
+		for cnt := range kv.UnchangedTickerNotifier(800, false, done) {
 			fmt.Println(" --- ", cnt)
 		}
 	}()
 
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(8 * time.Second)
 		done <- struct{}{}
 	}()
+
+	time.Sleep(4 * time.Second)
+	kv.Save(5, 555, true)
+	kv.Save(6, 666, true)
 
 	time.Sleep(10 * time.Second)
 

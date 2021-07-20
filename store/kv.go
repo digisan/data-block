@@ -186,43 +186,49 @@ func (kv *KVStorage) ChangedNotifier() <-chan int {
 }
 
 // duration : Millisecond
-func (kv *KVStorage) UnchangedNotifier(duration int, once bool, tickerstop chan struct{}, excl ...int) <-chan int {
+func (kv *KVStorage) UnchangedOnceNotifier(duration int, excl ...int) <-chan int {
 	go func() {
-
 		cntPrev := kv.Length()
 		d := time.Duration(duration * int(time.Millisecond))
-
-		if once {
-
-			timer := time.NewTimer(d)
-			<-timer.C
-			timer.Stop()
-			if kv.Length()-cntPrev == 0 {
-				if ti.NotIn(kv.Length(), excl...) {
-					kv.cUnchanged <- kv.Length()
-				}
+		timer := time.NewTimer(d)
+		<-timer.C
+		timer.Stop()
+		if kv.Length()-cntPrev == 0 {
+			if ti.NotIn(kv.Length(), excl...) {
+				kv.cUnchanged <- kv.Length()
 			}
+		}
+	}()
+	return kv.cUnchanged
+}
 
-		} else {
-
-			ticker := time.NewTicker(d)
-		T:
-			for {
-				select {
-				case <-tickerstop:
-					break T
-				case <-ticker.C:
-					if kv.Length()-cntPrev == 0 {
-						if ti.NotIn(kv.Length(), excl...) {
-							kv.cUnchanged <- kv.Length()
+func (kv *KVStorage) UnchangedTickerNotifier(duration int, onceOnSame bool, tickerstop chan struct{}, excl ...int) <-chan int {
+	go func() {
+		mLenTick := make(map[int]int)
+		d := time.Duration(duration * int(time.Millisecond))
+		ticker := time.NewTicker(d)
+	T:
+		for {
+			cntPrev := kv.Length()
+			select {
+			case <-tickerstop:
+				break T
+			case <-ticker.C:
+				if L := kv.Length(); L-cntPrev == 0 {
+					if onceOnSame {
+						if _, ok := mLenTick[L]; ok {
+							continue T
 						}
+					}
+					if ti.NotIn(L, excl...) {
+						kv.cUnchanged <- L
+						mLenTick[L]++
 					}
 				}
 			}
-			ticker.Stop()
 		}
+		ticker.Stop()
 	}()
-
 	return kv.cUnchanged
 }
 
