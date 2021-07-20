@@ -56,7 +56,6 @@ func (spov *SPOV) pso() int64 {
 			spov.object,
 			spov.version,
 		},
-		false,
 	)
 	return 0
 }
@@ -70,7 +69,6 @@ func (spov *SPOV) osp() int64 {
 			spov.predicate,
 			spov.version,
 		},
-		true,
 	)
 	return 0
 }
@@ -84,7 +82,6 @@ func (spov *SPOV) spo() int64 {
 			spov.object,
 			spov.version,
 		},
-		true,
 	)
 	return 0
 }

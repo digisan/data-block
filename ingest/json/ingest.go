@@ -39,6 +39,6 @@ func FlattenStore(r io.Reader) {
 		for k, v := range m {
 			spo.Save(id, k, v)
 		}
-		kv.Save(id, rst.Obj, true)
+		kv.Save(id, rst.Obj)
 	}
 }

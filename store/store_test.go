@@ -31,13 +31,13 @@ func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
 
 func TestSave(t *testing.T) {
 
-	kv := NewKV("./test_out", "", true, true)
+	kv := NewKV("./test_out", ".txt", true, true)
 	kv.OnConflict = func(existing, coming interface{}) (bool, interface{}) {
 		return true, fmt.Sprintf("%v\n%v", existing, coming)
 	}
-	kv.Save("1", "test111", true)
-	kv.Save("1", "test222", true)
-	kv.Save(2, 123, true)
+	kv.Save("1", "test111")
+	kv.Save("1", "test222")
+	kv.Save(2, 123)
 	kv.SaveWithIDKey(1234)
 	kv.SaveWithTSKey(2234)
 
@@ -49,7 +49,7 @@ func TestSave(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		for cnt := range kv.UnchangedTickerNotifier(800, false, done) {
+		for cnt := range kv.UnchangedTickerNotifier(800, true, done) {
 			fmt.Println(" --- ", cnt)
 		}
 	}()
@@ -60,8 +60,8 @@ func TestSave(t *testing.T) {
 	}()
 
 	time.Sleep(4 * time.Second)
-	kv.Save(5, 555, true)
-	kv.Save(6, 666, true)
+	kv.Save(5, 555)
+	kv.Save(6, 666)
 
 	time.Sleep(10 * time.Second)
 
@@ -70,14 +70,14 @@ func TestSave(t *testing.T) {
 }
 
 // func TestKVStorage_FileSyncToMap(t *testing.T) {
-// 	kv := NewKV("../in", "json", fac4AppendJA, true, true)
+// 	kv := NewKV("../in", "json", true, true)
 // 	kv.FileSyncToMap()
 // 	fmt.Println(kv.M["5"])
 // 	fmt.Println(kv.SM.Load("5"))
 // }
 
 // func TestKVStorage_AppendJSONFromFile(t *testing.T) {
-// 	kv := NewKV("../in1", "json", fac4AppendJA, true, true)
+// 	kv := NewKV("../in1", "json", true, true)
 // 	kv.AppendJSONFromFile("../in")
 // }
 

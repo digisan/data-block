@@ -46,7 +46,6 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 	if wantM {
 		kv.KVs = append(kv.KVs, &impl.M{})
 	}
-
 	if wantSM {
 		kv.KVs = append(kv.KVs, &impl.SM{})
 	}
@@ -57,8 +56,8 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 func (kv *KVStorage) file(key interface{}, value string, repeatIdx bool) bool {
 	if kv.dir != "" {
 		absdir, _ := fd.AbsPath(kv.dir, false)
-		fullpath := filepath.Join(absdir, fmt.Sprint(key)) // full abs file name path without extension
-		ext := strings.TrimLeft(kv.ext, ".")               // extension without prefix '.'
+		fullpath := filepath.Join(absdir, fmt.Sprint(key))               // full abs file name path without extension
+		ext := strings.TrimRight("."+strings.TrimLeft(kv.ext, "."), ".") // extension with prefix '.', if empty, then no '.'
 		prevpath := ""
 
 		if repeatIdx {
@@ -77,7 +76,7 @@ func (kv *KVStorage) file(key interface{}, value string, repeatIdx bool) bool {
 		}
 
 		// add extension
-		fullpath = strings.TrimRight(fullpath+"."+ext, ".") // if no ext, remove last '.'
+		fullpath = strings.TrimRight(fullpath+ext, ".") // if no ext, remove last '.'
 
 		if prevpath == "" {
 			prevpath = fullpath
@@ -93,7 +92,7 @@ func (kv *KVStorage) fileFetch(key interface{}, repeatIdx bool) (string, bool) {
 	if kv.dir != "" {
 		absdir, _ := fd.AbsPath(kv.dir, false)
 		fullpath := filepath.Join(absdir, fmt.Sprint(key))
-		ext := strings.TrimLeft(kv.ext, ".")
+		ext := strings.TrimRight("."+strings.TrimLeft(kv.ext, "."), ".")
 
 		if repeatIdx {
 			// search path with .../key(number).ext
@@ -104,7 +103,7 @@ func (kv *KVStorage) fileFetch(key interface{}, repeatIdx bool) (string, bool) {
 			}
 		} else {
 			// add extension
-			fullpath = strings.TrimRight(fullpath+"."+ext, ".") // if no ext, remove last '.'
+			fullpath = strings.TrimRight(fullpath+ext, ".") // if no ext, remove last '.'
 		}
 
 		if fd.FileExists(fullpath) {
@@ -234,8 +233,8 @@ func (kv *KVStorage) UnchangedTickerNotifier(duration int, onceOnSame bool, tick
 
 ///////////////////////////////////////////////////////
 
-func (kv *KVStorage) Save(key, value interface{}, fileNameRepeatIdx bool) {
-	kv.batchSave(key, value, fileNameRepeatIdx)
+func (kv *KVStorage) Save(key, value interface{}) {
+	kv.batchSave(key, value, true)
 }
 
 func (kv *KVStorage) Fac4SaveWithIdxKey(start int) func(value interface{}) {
@@ -318,7 +317,7 @@ func (kv *KVStorage) AppendJSONFromFile(dir string) int {
 			ResultOfScan, _ := jt.ScanObject(file, false, true, jt.OUT_MIN)
 			for rst := range ResultOfScan {
 				if rst.Err == nil {
-					kv.Save(key, rst.Obj, true)
+					kv.Save(key, rst.Obj)
 				}
 			}
 
