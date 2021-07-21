@@ -43,7 +43,7 @@ var (
 func NewSPO(dir string) *SPOV {
 	spoDumpDir = dir
 	spov := &SPOV{version: 0, kv: NewKV(spoDumpDir, "", false, false)}
-	spov.kv.OnConflict = onConflict
+	spov.kv.OnConflict(onConflict)
 	return spov
 }
 

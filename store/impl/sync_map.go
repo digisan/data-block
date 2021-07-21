@@ -41,6 +41,11 @@ func (sm *SM) Clear() {
 	}
 }
 
-func (sm *SM) OnConflict(existing, coming interface{}) (bool, interface{}) {
-	return true, coming
+func (sm *SM) OnConflict(f func(existing, coming interface{}) (bool, interface{})) func(existing, coming interface{}) (bool, interface{}) {
+	if f != nil {
+		return f
+	}
+	return func(existing, coming interface{}) (bool, interface{}) {
+		return true, coming
+	}
 }

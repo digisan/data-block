@@ -32,9 +32,10 @@ func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
 func TestSave(t *testing.T) {
 
 	kv := NewKV("./test_out", ".txt", true, true)
-	kv.OnConflict = func(existing, coming interface{}) (bool, interface{}) {
-		return true, fmt.Sprintf("%v\n%v", existing, coming)
-	}
+	kv.OnConflict(func(existing, coming interface{}) (bool, interface{}) {
+		return true, "overwrite" // fmt.Sprintf("%v\n%v", existing, coming)
+	})
+
 	kv.Save("1", "test111")
 	kv.Save("1", "test222")
 	kv.Save(2, 123)

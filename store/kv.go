@@ -24,7 +24,7 @@ type KVStorage struct {
 	cChanged   chan int                                               // if length changed, notify updated length
 	cUnchanged chan int                                               // if length has not changed for a while, notify length
 	dir, ext   string                                                 // file directory & file extension
-	OnConflict func(existing, coming interface{}) (bool, interface{}) // conflict solver for file
+	onConflict func(existing, coming interface{}) (bool, interface{}) // conflict solver for file
 	KVs        []impl.Ikv
 }
 
@@ -51,6 +51,13 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 	}
 
 	return kv
+}
+
+func (kv *KVStorage) OnConflict(f func(existing, coming interface{}) (bool, interface{})) {
+	kv.onConflict = f
+	for _, s := range kv.KVs {
+		s.OnConflict(f)
+	}
 }
 
 func (kv *KVStorage) file(key interface{}, value string, repeatIdx bool) bool {
@@ -129,7 +136,7 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 		done  = make(chan bool)
 	)
 
-	if solver := kv.OnConflict; solver != nil {
+	if solver := kv.onConflict; solver != nil {
 		if str, ok := kv.fileFetch(key, repeatIdx); ok { // conflicts
 			if save, content := solver(str, value); save {
 				switch cont := content.(type) {
@@ -157,7 +164,7 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 OTHERS:
 	for _, s := range kv.KVs {
 		if v, ok := s.Get(key); ok { // conflicts
-			if save, content := s.OnConflict(v, value); save {
+			if save, content := s.OnConflict(kv.onConflict)(v, value); save {
 				if s.Set(key, content) && !added {
 					kv.length++
 					go func() { kv.cChanged <- kv.length; done <- true }()

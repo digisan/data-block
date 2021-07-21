@@ -5,5 +5,5 @@ type Ikv interface {
 	Set(key, value interface{}) bool
 	Get(key interface{}) (interface{}, bool)
 	Clear()
-	OnConflict(existing, coming interface{}) (bool, interface{})
+	OnConflict(f func(existing, coming interface{}) (bool, interface{})) func(existing, coming interface{}) (bool, interface{})
 }
