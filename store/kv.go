@@ -40,7 +40,7 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 
 	if dir != "" {
 		kv.dir = dir
-		kv.ext = ext
+		kv.ext = fd.DotExt(ext)
 	}
 
 	if wantM {
@@ -56,8 +56,8 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 func (kv *KVStorage) file(key interface{}, value string, repeatIdx bool) bool {
 	if kv.dir != "" {
 		absdir, _ := fd.AbsPath(kv.dir, false)
-		fullpath := filepath.Join(absdir, fmt.Sprint(key))               // full abs file name path without extension
-		ext := strings.TrimRight("."+strings.TrimLeft(kv.ext, "."), ".") // extension with prefix '.', if empty, then no '.'
+		fullpath := filepath.Join(absdir, fmt.Sprint(key)) // full abs file name path without extension
+		ext := kv.ext                                      // extension with prefix '.', if empty, then no '.'
 		prevpath := ""
 
 		if repeatIdx {
@@ -92,7 +92,7 @@ func (kv *KVStorage) fileFetch(key interface{}, repeatIdx bool) (string, bool) {
 	if kv.dir != "" {
 		absdir, _ := fd.AbsPath(kv.dir, false)
 		fullpath := filepath.Join(absdir, fmt.Sprint(key))
-		ext := strings.TrimRight("."+strings.TrimLeft(kv.ext, "."), ".")
+		ext := kv.ext
 
 		if repeatIdx {
 			// search path with .../key(number).ext
@@ -254,10 +254,6 @@ func (kv *KVStorage) SaveWithIDKey(value interface{}) {
 
 ///////////////////////////////////////////////////////
 
-func withDot(str string) string {
-	return "." + strings.TrimLeft(str, ".")
-}
-
 func (kv *KVStorage) FileSyncToMap() int {
 	files, _, err := fd.WalkFileDir(kv.dir, true)
 	if err != nil {
@@ -265,7 +261,7 @@ func (kv *KVStorage) FileSyncToMap() int {
 	}
 	return len(ts.FM(
 		files,
-		func(i int, e string) bool { return strings.HasSuffix(e, withDot(kv.ext)) },
+		func(i int, e string) bool { return strings.HasSuffix(e, kv.ext) },
 		func(i int, e string) string {
 			fname := filepath.Base(e)
 			key := fname[:strings.IndexAny(fname, "(.")]
@@ -304,7 +300,7 @@ func (kv *KVStorage) AppendJSONFromFile(dir string) int {
 	}
 	return len(ts.FM(
 		files,
-		func(i int, e string) bool { return strings.HasSuffix(e, withDot("json")) },
+		func(i int, e string) bool { return strings.HasSuffix(e, fd.DotExt("json")) },
 		func(i int, e string) string {
 			fname := filepath.Base(e)
 			key := fname[:strings.IndexAny(fname, "(.")]
