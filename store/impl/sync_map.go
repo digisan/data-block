@@ -49,3 +49,7 @@ func (sm *SM) OnConflict(f func(existing, coming interface{}) (bool, interface{}
 		return true, coming
 	}
 }
+
+func (sm *SM) IsPersistent() bool {
+	return false
+}

@@ -1,34 +1,32 @@
 package store
 
 import (
+	"context"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/digisan/data-block/store/impl"
-	fd "github.com/digisan/gotk/filedir"
-	"github.com/digisan/gotk/io"
 	"github.com/digisan/gotk/slice/ti"
-	"github.com/digisan/gotk/slice/ts"
-	jt "github.com/digisan/json-tool"
 	"github.com/google/uuid"
+)
+
+var (
+	IdxM  = -1
+	IdxSM = -1
+	IdxFS = -1
 )
 
 type KVStorage struct {
 	length     int                                                    // storage count
 	cChanged   chan int                                               // if length changed, notify updated length
 	cUnchanged chan int                                               // if length has not changed for a while, notify length
-	dir, ext   string                                                 // file directory & file extension
 	onConflict func(existing, coming interface{}) (bool, interface{}) // conflict solver for file
 	KVs        []impl.Ikv
 }
 
-func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
+func NewKV(wantM, wantSM bool) *KVStorage {
 
 	const N = 10000
 
@@ -38,19 +36,21 @@ func NewKV(dir, ext string, wantM, wantSM bool) *KVStorage {
 		cUnchanged: make(chan int, N),
 	}
 
-	if dir != "" {
-		kv.dir = dir
-		kv.ext = fd.DotExt(ext)
-	}
-
 	if wantM {
 		kv.KVs = append(kv.KVs, &impl.M{})
+		IdxM = len(kv.KVs) - 1
 	}
 	if wantSM {
 		kv.KVs = append(kv.KVs, &impl.SM{})
+		IdxSM = len(kv.KVs) - 1
 	}
 
 	return kv
+}
+
+func (kv *KVStorage) AppendFS(dir, ext string, repeatIdx bool) {
+	kv.KVs = append(kv.KVs, impl.NewFS(dir, ext, repeatIdx))
+	IdxFS = len(kv.KVs) - 1
 }
 
 func (kv *KVStorage) OnConflict(f func(existing, coming interface{}) (bool, interface{})) {
@@ -59,70 +59,6 @@ func (kv *KVStorage) OnConflict(f func(existing, coming interface{}) (bool, inte
 		s.OnConflict(f)
 	}
 }
-
-func (kv *KVStorage) file(key interface{}, value string, repeatIdx bool) bool {
-	if kv.dir != "" {
-		absdir, _ := fd.AbsPath(kv.dir, false)
-		fullpath := filepath.Join(absdir, fmt.Sprint(key)) // full abs file name path without extension
-		ext := kv.ext                                      // extension with prefix '.', if empty, then no '.'
-		prevpath := ""
-
-		if repeatIdx {
-			// record duplicate key number in fullpath as .../key(number).ext
-			if matches, err := filepath.Glob(fullpath + "(*)" + ext); err == nil {
-				if len(matches) > 0 {
-					prevpath = matches[0]
-					fname := filepath.Base(prevpath)
-					pO, pC := strings.Index(fname, "("), strings.Index(fname, ")")
-					num, _ := strconv.Atoi(fname[pO+1 : pC])
-					fullpath = filepath.Join(absdir, fmt.Sprintf("%s(%d)", fname[:pO], num+1))
-				} else {
-					fullpath = fmt.Sprintf("%s(1)", fullpath)
-				}
-			}
-		}
-
-		// add extension
-		fullpath = strings.TrimRight(fullpath+ext, ".") // if no ext, remove last '.'
-
-		if prevpath == "" {
-			prevpath = fullpath
-		}
-		io.MustWriteFile(prevpath, []byte(value))
-		os.Rename(prevpath, fullpath)
-		return true
-	}
-	return false
-}
-
-func (kv *KVStorage) fileFetch(key interface{}, repeatIdx bool) (string, bool) {
-	if kv.dir != "" {
-		absdir, _ := fd.AbsPath(kv.dir, false)
-		fullpath := filepath.Join(absdir, fmt.Sprint(key))
-		ext := kv.ext
-
-		if repeatIdx {
-			// search path with .../key(number).ext
-			if matches, err := filepath.Glob(fullpath + "(*)" + ext); err == nil {
-				if len(matches) > 0 {
-					fullpath = matches[0]
-				}
-			}
-		} else {
-			// add extension
-			fullpath = strings.TrimRight(fullpath+ext, ".") // if no ext, remove last '.'
-		}
-
-		if fd.FileExists(fullpath) {
-			if bytes, err := os.ReadFile(fullpath); err == nil {
-				return string(bytes), true
-			}
-		}
-	}
-	return "", false
-}
-
-// ----------------------- //
 
 func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 
@@ -136,32 +72,6 @@ func (kv *KVStorage) batchSave(key, value interface{}, repeatIdx bool) bool {
 		done  = make(chan bool)
 	)
 
-	if solver := kv.onConflict; solver != nil {
-		if str, ok := kv.fileFetch(key, repeatIdx); ok { // conflicts
-			if save, content := solver(str, value); save {
-				switch cont := content.(type) {
-				case string:
-					if kv.file(key, cont, repeatIdx) && !added {
-						kv.length++
-						go func() { kv.cChanged <- kv.length; done <- true }()
-						added = <-done
-					}
-				default:
-					panic("solver error unimplemented")
-				}
-			}
-			goto OTHERS
-		}
-	}
-	if kv.file(key, fmt.Sprint(value), repeatIdx) && !added {
-		kv.length++
-		go func() { kv.cChanged <- kv.length; done <- true }()
-		added = <-done
-	}
-
-	/////////////////////
-
-OTHERS:
 	for _, s := range kv.KVs {
 		if v, ok := s.Get(key); ok { // conflicts
 			if save, content := s.OnConflict(kv.onConflict)(v, value); save {
@@ -208,7 +118,7 @@ func (kv *KVStorage) UnchangedOnceNotifier(duration int, excl ...int) <-chan int
 	return kv.cUnchanged
 }
 
-func (kv *KVStorage) UnchangedTickerNotifier(duration int, onceOnSame bool, tickerstop chan struct{}, excl ...int) <-chan int {
+func (kv *KVStorage) UnchangedTickerNotifier(ctx context.Context, duration int, onceOnSame bool, excl ...int) <-chan int {
 	go func() {
 		mLenTick := make(map[int]int)
 		d := time.Duration(duration * int(time.Millisecond))
@@ -217,7 +127,7 @@ func (kv *KVStorage) UnchangedTickerNotifier(duration int, onceOnSame bool, tick
 		for {
 			cntPrev := kv.Length()
 			select {
-			case <-tickerstop:
+			case <-ctx.Done():
 				break T
 			case <-ticker.C:
 				if L := kv.Length(); L-cntPrev == 0 {
@@ -261,70 +171,71 @@ func (kv *KVStorage) SaveWithIDKey(value interface{}) {
 
 ///////////////////////////////////////////////////////
 
-func (kv *KVStorage) FileSyncToMap() int {
-	files, _, err := fd.WalkFileDir(kv.dir, true)
-	if err != nil {
-		return 0
-	}
-	return len(ts.FM(
-		files,
-		func(i int, e string) bool { return strings.HasSuffix(e, kv.ext) },
-		func(i int, e string) string {
-			fname := filepath.Base(e)
-			key := fname[:strings.IndexAny(fname, "(.")]
-			if bytes, err := os.ReadFile(e); err == nil {
-				value := string(bytes)
-				for _, s := range kv.KVs {
-					s.Set(key, value)
-				}
-			} else {
-				log.Fatalln(err)
-			}
-			return key
-		},
-	))
-}
-
-///////////////////////////////////////////////////////
-
 func (kv *KVStorage) Clear(rmPersistent bool) {
 	if rmPersistent {
-		if fd.DirExists(kv.dir) {
-			os.RemoveAll(kv.dir)
+		for _, s := range kv.KVs {
+			s.Clear()
 		}
-	}
-	for _, s := range kv.KVs {
-		s.Clear()
+	} else {
+		for _, s := range kv.KVs {
+			if !s.IsPersistent() {
+				s.Clear()
+			}
+		}
 	}
 }
 
 ///////////////////////////////////////////////////////
 
-func (kv *KVStorage) AppendJSONFromFile(dir string) int {
-	files, _, err := fd.WalkFileDir(dir, true)
-	if err != nil {
-		return 0
-	}
-	return len(ts.FM(
-		files,
-		func(i int, e string) bool { return strings.HasSuffix(e, fd.DotExt("json")) },
-		func(i int, e string) string {
-			fname := filepath.Base(e)
-			key := fname[:strings.IndexAny(fname, "(.")]
-			file, err := os.OpenFile(e, os.O_RDONLY, os.ModePerm)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			defer file.Close()
+// func (kv *KVStorage) FileSyncToMap() int {
+// 	files, _, err := fd.WalkFileDir(kv.dir, true)
+// 	if err != nil {
+// 		return 0
+// 	}
+// 	return len(ts.FM(
+// 		files,
+// 		func(i int, e string) bool { return strings.HasSuffix(e, kv.ext) },
+// 		func(i int, e string) string {
+// 			fname := filepath.Base(e)
+// 			key := fname[:strings.IndexAny(fname, "(.")]
+// 			if bytes, err := os.ReadFile(e); err == nil {
+// 				value := string(bytes)
+// 				for _, s := range kv.KVs {
+// 					s.Set(key, value)
+// 				}
+// 			} else {
+// 				log.Fatalln(err)
+// 			}
+// 			return key
+// 		},
+// 	))
+// }
 
-			ResultOfScan, _ := jt.ScanObject(file, false, true, jt.OUT_MIN)
-			for rst := range ResultOfScan {
-				if rst.Err == nil {
-					kv.Save(key, rst.Obj)
-				}
-			}
+// func (kv *KVStorage) AppendJSONFromFile(dir string) int {
+// 	files, _, err := fd.WalkFileDir(dir, true)
+// 	if err != nil {
+// 		return 0
+// 	}
+// 	return len(ts.FM(
+// 		files,
+// 		func(i int, e string) bool { return strings.HasSuffix(e, fd.DotExt("json")) },
+// 		func(i int, e string) string {
+// 			fname := filepath.Base(e)
+// 			key := fname[:strings.IndexAny(fname, "(.")]
+// 			file, err := os.OpenFile(e, os.O_RDONLY, os.ModePerm)
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			defer file.Close()
 
-			return key
-		},
-	))
-}
+// 			ResultOfScan, _ := jt.ScanObject(file, false, true, jt.OUT_MIN)
+// 			for rst := range ResultOfScan {
+// 				if rst.Err == nil {
+// 					kv.Save(key, rst.Obj)
+// 				}
+// 			}
+
+// 			return key
+// 		},
+// 	))
+// }

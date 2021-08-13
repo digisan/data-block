@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -31,9 +32,14 @@ func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
 
 func TestSave(t *testing.T) {
 
-	kv := NewKV("./test_out", ".txt", true, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	kv := NewKV(true, true)
+	kv.AppendFS("./test_out", ".txt", true)
 	kv.OnConflict(func(existing, coming interface{}) (bool, interface{}) {
-		return true, "overwrite" // fmt.Sprintf("%v\n%v", existing, coming)
+		// return true, "overwrite"
+		return true, fmt.Sprintf("%v\n%v", existing, coming)
 	})
 
 	kv.Save("1", "test111")
@@ -48,16 +54,15 @@ func TestSave(t *testing.T) {
 		}
 	}()
 
-	done := make(chan struct{})
 	go func() {
-		for cnt := range kv.UnchangedTickerNotifier(800, true, done) {
+		for cnt := range kv.UnchangedTickerNotifier(ctx, 500, false) {
 			fmt.Println(" --- ", cnt)
 		}
 	}()
 
 	go func() {
 		time.Sleep(8 * time.Second)
-		done <- struct{}{}
+		cancel()
 	}()
 
 	time.Sleep(4 * time.Second)
@@ -66,8 +71,9 @@ func TestSave(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	fmt.Println(kv.KVs[0].Get("1"))
-	fmt.Println(kv.KVs[1].Get(2))
+	fmt.Println(kv.KVs[IdxM].Get("1"))
+	fmt.Println(kv.KVs[IdxSM].Get(2))
+	fmt.Println(kv.KVs[IdxFS].Get(1))
 }
 
 // func TestKVStorage_FileSyncToMap(t *testing.T) {
