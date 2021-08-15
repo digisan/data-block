@@ -7,8 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dgraph-io/badger/v3"
 	fd "github.com/digisan/gotk/filedir"
 	"github.com/digisan/gotk/io"
+	"github.com/digisan/gotk/slice/ti"
 	"github.com/digisan/gotk/slice/ts"
 )
 
@@ -35,6 +37,17 @@ func (fs *FileStore) Len() int {
 
 func (fs *FileStore) Set(key, value interface{}) bool {
 	if fs.dir != "" {
+
+		// switch k := key.(type) {
+		// case []byte:
+		// 	switch v := value.(type) {
+		// 	case []byte:
+		// 		key, value = string(k), string(v)
+		// 	default:
+		// 		key = string(k)
+		// 	}
+		// }
+
 		fullpath := filepath.Join(fs.dir, fmt.Sprint(key)) // full abs file name path without extension
 		ext := fs.ext                                      // extension with prefix '.', if empty, then no '.'
 		prevpath := ""
@@ -119,6 +132,32 @@ func (fs *FileStore) IsPersistent() bool {
 	return true
 }
 
-// func (fs *FileStore) SyncToMap() int {
+func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) {
+	wb := db.NewWriteBatch()
+	defer wb.Flush()
 
-// }
+	files, _, err := fd.WalkFileDir(fs.dir, false)
+	if err != nil {
+		panic(err)
+	}
+	ts.FM(files, func(i int, e string) bool {
+
+		if strings.HasSuffix(e, ext) {
+			fn := filepath.Base(e)
+			p1 := strings.LastIndex(fn, "(")
+			p2 := strings.LastIndex(fn, ext)
+			ps := ti.FM([]int{p1, p2}, func(i, e int) bool { return e > -1 }, nil)
+			key := fn[:ti.Min(ps...)]
+			bytes, err := os.ReadFile(e)
+			if err != nil {
+				panic(err)
+			}
+
+			kBuf := append([]byte("s"), []byte(fmt.Sprint(key))...)
+			vBuf := append([]byte("s"), bytes...)
+			wb.Set(kBuf, vBuf)
+		}
+		return true
+
+	}, nil)
+}

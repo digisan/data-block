@@ -6,40 +6,47 @@ import (
 	"testing"
 	"time"
 
+	"github.com/digisan/data-block/store/db"
 	"github.com/digisan/data-block/store/impl"
 )
 
-func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
-	return func(existing, coming interface{}) (bool, interface{}) {
-		switch existing := existing.(type) {
-		case string:
-			if len(existing) > 0 {
-				switch existing[0] {
-				case '{':
-					return true, fmt.Sprintf("[%s,%s]", existing, coming)
-				case '[':
-					return true, fmt.Sprintf("%s,%s]", existing[:len(existing)-1], coming)
-				default:
-					panic("error in existing JSON storage")
-				}
-			}
-			return true, coming
-		default:
-			return false, ""
-		}
-	}
-}
+// func fac4AppendJA() func(existing, coming interface{}) (bool, interface{}) {
+// 	return func(existing, coming interface{}) (bool, interface{}) {
+// 		switch existing := existing.(type) {
+// 		case string:
+// 			if len(existing) > 0 {
+// 				switch existing[0] {
+// 				case '{':
+// 					return true, fmt.Sprintf("[%s,%s]", existing, coming)
+// 				case '[':
+// 					return true, fmt.Sprintf("%s,%s]", existing[:len(existing)-1], coming)
+// 				default:
+// 					panic("error in existing JSON storage")
+// 				}
+// 			}
+// 			return true, coming
+// 		default:
+// 			return false, ""
+// 		}
+// 	}
+// }
 
 func TestSave(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	badgerDB, err := db.NewBadgerDB("./data/badger")
+	if err != nil {
+		panic(err)
+	}
+	defer badgerDB.Close()
+
 	kv := NewKV(true, true)
-	kv.AppendFS("./test_out", ".txt", true)
+	kv.AppendFS("./data/test_out", ".txt", true)
 	kv.OnConflict(func(existing, coming interface{}) (bool, interface{}) {
-		// return true, "overwrite"
-		return true, fmt.Sprintf("%v\n%v", existing, coming)
+		return true, coming
+		// return true, fmt.Sprintf("%v\n%v", existing, coming)
 	})
 
 	kv.Save("1", "test111")
@@ -55,8 +62,12 @@ func TestSave(t *testing.T) {
 	}()
 
 	go func() {
-		for cnt := range kv.UnchangedTickerNotifier(ctx, 500, false) {
+		for cnt := range kv.UnchangedTickerNotifier(ctx, 500, true) {
 			fmt.Println(" --- ", cnt)
+
+			kv.KVs[IdxM].(*impl.M).FlushToBadger(badgerDB)
+			// kv.KVs[IdxSM].(*impl.SM).FlushToBadger(badgerDB)
+			// kv.KVs[IdxFS].(*impl.FileStore).FlushToBadger(badgerDB, "txt")
 		}
 	}()
 
@@ -76,19 +87,26 @@ func TestSave(t *testing.T) {
 	fmt.Println(kv.KVs[IdxFS].Get(1))
 }
 
-// func TestKVStorage_FileSyncToMap(t *testing.T) {
-// 	kv := NewKV("../in", "json", true, true)
-// 	kv.FileSyncToMap()
-// 	fmt.Println(kv.M["5"])
-// 	fmt.Println(kv.SM.Load("5"))
-// }
+func TestBadgerLoad(t *testing.T) {
 
-// func TestKVStorage_AppendJSONFromFile(t *testing.T) {
-// 	kv := NewKV("../in1", "json", true, true)
-// 	kv.AppendJSONFromFile("../in")
-// }
+	badgerDB, err := db.NewBadgerDB("./data/badger")
+	if err != nil {
+		panic(err)
+	}
 
-func TestClear(t *testing.T) {
-	m := impl.NewM()
-	m.Set(1, 2)
+	// m := impl.NewM()
+	m := impl.NewSM()
+	// m := impl.NewFS("./data/test_out_from_badger", "txt", false)
+
+	db.SyncFromBadger(m, badgerDB)
+	// db.SyncFromBadgerByKey(m, badgerDB, 2)
+	// db.SyncFromBadgerByPrefix(m, badgerDB, "2")
+
+	fmt.Println("---", *m)
+
+	fmt.Println(m.Len())
+	fmt.Println(m.Get(1)) // "1"
+	fmt.Println(m.Get(2))
+	fmt.Println(m.Get(5))
+	fmt.Println(m.Get(6))
 }
