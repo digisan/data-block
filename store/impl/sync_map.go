@@ -136,6 +136,8 @@ func (sm *SM) FlushToBadger(db *badger.DB) {
 			tKey[0] = 'c'
 		case nil:
 			tKey[0] = 'n'
+		case struct{}:
+			tKey[0] = 'e'
 		default:
 			panic("key type is not supported @ SM FlushToBadger")
 		}
@@ -154,6 +156,8 @@ func (sm *SM) FlushToBadger(db *badger.DB) {
 			tVal[0] = 'c'
 		case nil:
 			tVal[0] = 'n'
+		case struct{}:
+			tVal[0] = 'e'
 		default:
 			panic("value type is not supported @ SM FlushToBadger")
 		}

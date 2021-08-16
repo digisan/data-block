@@ -44,6 +44,8 @@ func fetch(raw []byte) (result interface{}, err error) {
 		result, err = strconv.ParseComplex(resultStr, 128)
 	case 'n':
 		result = nil
+	case 'e':
+		result = struct{}{}
 	default:
 		panic("Invalid Type @ Badger Storage")
 	}
@@ -107,6 +109,8 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}) error {
 			tKey = 'c'
 		case nil:
 			tKey = 'n'
+		case struct{}:
+			tKey = 'e'
 		default:
 			panic("key type is not supported @ SyncFromBadgerByKey")
 		}

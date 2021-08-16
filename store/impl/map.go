@@ -113,7 +113,7 @@ func (m *M) IsPersistent() bool {
 func (m *M) FlushToBadger(db *badger.DB) {
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
-	
+
 	for key, value := range *m {
 
 		tKey := make([]byte, 1)
@@ -130,6 +130,8 @@ func (m *M) FlushToBadger(db *badger.DB) {
 			tKey[0] = 'c'
 		case nil:
 			tKey[0] = 'n'
+		case struct{}:
+			tKey[0] = 'e'
 		default:
 			panic("key type is not supported @ M FlushToBadger")
 		}
@@ -148,6 +150,8 @@ func (m *M) FlushToBadger(db *badger.DB) {
 			tVal[0] = 'c'
 		case nil:
 			tVal[0] = 'n'
+		case struct{}:
+			tVal[0] = 'e'
 		default:
 			panic("value type is not supported @ M FlushToBadger")
 		}

@@ -29,7 +29,7 @@ func NewFS(dir, ext string, repeatIdx bool) *FileStore {
 func (fs *FileStore) Len() int {
 	files, _, err := fd.WalkFileDir(fs.dir, false)
 	if err != nil {
-		panic("panic @ FileStore Len")
+		panic("error @ FileStore Len")
 	}
 	files = ts.FM(files, func(i int, e string) bool { return strings.HasSuffix(e, fs.ext) }, nil)
 	return len(files)
@@ -109,12 +109,12 @@ func (fs *FileStore) Get(key interface{}) (interface{}, bool) {
 func (fs *FileStore) Clear() {
 	files, _, err := fd.WalkFileDir(fs.dir, false)
 	if err != nil {
-		panic("panic @ FileStore Len")
+		panic("error @ FileStore Clear")
 	}
 	files = ts.FM(files, func(i int, e string) bool { return strings.HasSuffix(e, fs.ext) }, nil)
 	for _, file := range files {
 		if os.Remove(file) != nil {
-			panic("panic @ FileStore Clear")
+			panic("error @ FileStore Clear")
 		}
 	}
 }
