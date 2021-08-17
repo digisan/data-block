@@ -171,6 +171,12 @@ func (kv *KVStorage) SaveWithIDKey(value interface{}) {
 
 ///////////////////////////////////////////////////////
 
+func (kv *KVStorage) Remove(key interface{}) {
+	for _, s := range kv.KVs {
+		s.Remove(key)
+	}
+}
+
 func (kv *KVStorage) Clear(rmPersistent bool) {
 	if rmPersistent {
 		for _, s := range kv.KVs {

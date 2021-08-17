@@ -52,7 +52,13 @@ func fetch(raw []byte) (result interface{}, err error) {
 	return
 }
 
-func SyncFromBadger(kv impl.Ikv, db *badger.DB) error {
+func RemoveToBadger(kv impl.Ikv, db *badger.DB) error {
+	panic("Not Implemented!!!")
+	return nil
+}
+
+// vFilter args number must be converted to [int64], [float64]
+func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(v interface{}) bool) error {
 	kv.Clear()
 	return db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -67,6 +73,7 @@ func SyncFromBadger(kv impl.Ikv, db *badger.DB) error {
 			if err := item.Value(func(v []byte) error {
 
 				// fmt.Printf(" ------------ key=%s, value=%s\n", k, v)
+
 				realKey, err := fetch(k)
 				if err != nil {
 					return errors.Wrap(err, "Key")
@@ -75,6 +82,11 @@ func SyncFromBadger(kv impl.Ikv, db *badger.DB) error {
 				if err != nil {
 					return errors.Wrap(err, "Value")
 				}
+
+				if vFilter != nil && !vFilter(realVal) {
+					return nil
+				}
+
 				kv.Set(realKey, realVal)
 				return nil
 
@@ -86,7 +98,8 @@ func SyncFromBadger(kv impl.Ikv, db *badger.DB) error {
 	})
 }
 
-func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}) error {
+// vFilter args number must be converted to [int64], [float64]
+func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter func(v interface{}) bool) error {
 	kv.Clear()
 	return db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -121,6 +134,7 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}) error {
 				if err := item.Value(func(v []byte) error {
 
 					// fmt.Printf(" ------------ key=%s, value=%s\n", k, v)
+
 					realKey, err := fetch(k)
 					if err != nil {
 						return errors.Wrap(err, "Key")
@@ -129,6 +143,11 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}) error {
 					if err != nil {
 						return errors.Wrap(err, "Value")
 					}
+
+					if vFilter != nil && !vFilter(realVal) {
+						return nil
+					}
+
 					kv.Set(realKey, realVal)
 					return nil
 
@@ -142,7 +161,8 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}) error {
 }
 
 // only string key available for prefix search
-func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string) error {
+// vFilter args number must be converted to [int64], [float64]
+func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string, vFilter func(v interface{}) bool) error {
 	kv.Clear()
 	return db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -165,6 +185,11 @@ func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string) error {
 				if err != nil {
 					return errors.Wrap(err, "Value")
 				}
+
+				if vFilter != nil && !vFilter(realVal) {
+					return nil
+				}
+
 				kv.Set(realKey, realVal)
 				return nil
 

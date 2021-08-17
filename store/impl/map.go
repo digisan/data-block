@@ -85,6 +85,10 @@ func (m *M) Get(key interface{}) (interface{}, bool) {
 	return nil, false
 }
 
+func (m *M) Remove(key interface{}) {
+	delete(*m, key)
+}
+
 func (m *M) Clear() {
 	keys := []interface{}{}
 	for k := range *m {

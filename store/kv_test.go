@@ -82,6 +82,8 @@ func TestSave(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
+	kv.Remove("1")
+
 	fmt.Println(kv.KVs[IdxM].Get("1"))
 	fmt.Println(kv.KVs[IdxSM].Get(2))
 	fmt.Println(kv.KVs[IdxFS].Get(1))
@@ -98,14 +100,20 @@ func TestBadgerLoad(t *testing.T) {
 	m := impl.NewSM()
 	// m := impl.NewFS("./data/test_out_from_badger", "txt", false)
 
-	db.SyncFromBadger(m, badgerDB)
-	// db.SyncFromBadgerByKey(m, badgerDB, 2)
-	// db.SyncFromBadgerByPrefix(m, badgerDB, "2")
+	db.SyncFromBadger(m, badgerDB, func(v interface{}) bool {
+		return v == int64(123)
+	})
+	// db.SyncFromBadgerByKey(m, badgerDB, 2, func(v interface{}) bool {
+	// 	return v == int64(123)
+	// })
+	// db.SyncFromBadgerByPrefix(m, badgerDB, "2", nil)
 
+	fmt.Println("-----------------------")
 	fmt.Println("---", *m)
-
+	fmt.Println("-----------------------")
 	fmt.Println(m.Len())
-	fmt.Println(m.Get(1)) // "1"
+	fmt.Println("-----------------------")
+	fmt.Println(m.Get("1"))
 	fmt.Println(m.Get(2))
 	fmt.Println(m.Get(5))
 	fmt.Println(m.Get(6))

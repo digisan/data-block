@@ -106,6 +106,23 @@ func (fs *FileStore) Get(key interface{}) (interface{}, bool) {
 	return "", false
 }
 
+func (fs *FileStore) Remove(key interface{}) {
+	file := filepath.Join(fs.dir, key.(string)+fs.ext)
+	if os.RemoveAll(file) != nil {
+		fmt.Printf("%v cannot be removed successfully", key)
+	}
+
+	file = filepath.Join(fs.dir, key.(string)+"(*)"+fs.ext)
+	files, err := filepath.Glob(file)
+	if err == nil {
+		for _, f := range files {
+			if os.RemoveAll(f) != nil {
+				fmt.Printf("%v cannot be removed successfully", key)
+			}
+		}
+	}
+}
+
 func (fs *FileStore) Clear() {
 	files, _, err := fd.WalkFileDir(fs.dir, false)
 	if err != nil {
