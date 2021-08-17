@@ -96,8 +96,8 @@ func TestBadgerLoad(t *testing.T) {
 		panic(err)
 	}
 
-	// m := impl.NewM()
-	m := impl.NewSM()
+	m := impl.NewM()
+	// m := impl.NewSM()
 	// m := impl.NewFS("./data/test_out_from_badger", "txt", false)
 
 	db.SyncFromBadger(m, badgerDB, func(v interface{}) bool {
@@ -107,6 +107,8 @@ func TestBadgerLoad(t *testing.T) {
 	// 	return v == int64(123)
 	// })
 	// db.SyncFromBadgerByPrefix(m, badgerDB, "2", nil)
+
+	// db.RemoveToBadger(m, badgerDB)
 
 	fmt.Println("-----------------------")
 	fmt.Println("---", *m)

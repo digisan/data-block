@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/pkg/errors"
 )
 
 type M map[interface{}]interface{}
@@ -114,54 +115,44 @@ func (m *M) IsPersistent() bool {
 
 ///////////////////////////////////////////////////////////////////
 
+// for badger db storage for differentiate data type
+func DBPrefix(input interface{}) (prefix byte, err error) {
+	switch i := input.(type) {
+	case string:
+		prefix = 's'
+	case bool:
+		prefix = 'b'
+	case int8, uint8, int16, uint16, int32, uint32, int64, uint64, int, uint, uintptr:
+		prefix = 'i'
+	case float32, float64:
+		prefix = 'f'
+	case complex64, complex128:
+		prefix = 'c'
+	case nil:
+		prefix = 'n'
+	case struct{}:
+		prefix = 'e'
+	default:
+		err = fmt.Errorf("%v is not supported for prefix", i)
+	}
+	return
+}
+
 func (m *M) FlushToBadger(db *badger.DB) {
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
 
 	for key, value := range *m {
-
-		tKey := make([]byte, 1)
-		switch key.(type) {
-		case string:
-			tKey[0] = 's'
-		case bool:
-			tKey[0] = 'b'
-		case int8, uint8, int16, uint16, int32, uint32, int64, uint64, int, uint, uintptr:
-			tKey[0] = 'i'
-		case float32, float64:
-			tKey[0] = 'f'
-		case complex64, complex128:
-			tKey[0] = 'c'
-		case nil:
-			tKey[0] = 'n'
-		case struct{}:
-			tKey[0] = 'e'
-		default:
-			panic("key type is not supported @ M FlushToBadger")
+		kp, err := DBPrefix(key)
+		if err != nil {
+			panic(errors.Wrap(err, "key type is not supported @ M FlushToBadger"))
 		}
-
-		tVal := make([]byte, 1)
-		switch value.(type) {
-		case string:
-			tVal[0] = 's'
-		case bool:
-			tVal[0] = 'b'
-		case int8, uint8, int16, uint16, int32, uint32, int64, uint64, int, uint, uintptr:
-			tVal[0] = 'i'
-		case float32, float64:
-			tVal[0] = 'f'
-		case complex64, complex128:
-			tVal[0] = 'c'
-		case nil:
-			tVal[0] = 'n'
-		case struct{}:
-			tVal[0] = 'e'
-		default:
-			panic("value type is not supported @ M FlushToBadger")
+		vp, err := DBPrefix(value)
+		if err != nil {
+			panic(errors.Wrap(err, "value type is not supported @ M FlushToBadger"))
 		}
-
-		kBuf := append(tKey, []byte(fmt.Sprint(key))...)
-		vBuf := append(tVal, []byte(fmt.Sprint(value))...)
+		kBuf := append([]byte{kp}, []byte(fmt.Sprint(key))...)
+		vBuf := append([]byte{vp}, []byte(fmt.Sprint(value))...)
 		wb.Set(kBuf, vBuf)
 	}
 }

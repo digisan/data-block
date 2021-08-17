@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/digisan/data-block/store/impl"
@@ -53,7 +54,33 @@ func fetch(raw []byte) (result interface{}, err error) {
 }
 
 func RemoveToBadger(kv impl.Ikv, db *badger.DB) error {
-	panic("Not Implemented!!!")
+	wb := db.NewWriteBatch()
+	defer wb.Flush()
+
+	switch m := kv.(type) {
+	case *impl.M:
+		for key := range *m {
+			kp, err := impl.DBPrefix(key)
+			if err != nil {
+				panic(errors.Wrap(err, "key type is not supported @ M RemoveToBadger"))
+			}
+			kBuf := append([]byte{kp}, []byte(fmt.Sprint(key))...)
+			wb.Delete(kBuf)
+		}
+	case *impl.SM:
+		((*sync.Map)(m)).Range(func(key, value interface{}) bool {
+			kp, err := impl.DBPrefix(key)
+			if err != nil {
+				panic(errors.Wrap(err, "key type is not supported @ SM RemoveToBadger"))
+			}
+			kBuf := append([]byte{kp}, []byte(fmt.Sprint(key))...)
+			wb.Delete(kBuf)
+			return true
+		})
+	default:
+		panic("kv must be map or sync.Map")
+	}
+
 	return nil
 }
 
