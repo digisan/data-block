@@ -96,27 +96,35 @@ func TestBadgerLoad(t *testing.T) {
 		panic(err)
 	}
 
-	m := impl.NewM()
+	// m := impl.NewM()
 	// m := impl.NewSM()
 	// m := impl.NewFS("./data/test_out_from_badger", "txt", false)
 
-	db.SyncFromBadger(m, badgerDB, func(v interface{}) bool {
-		return v == int64(123)
-	})
+	// db.SyncFromBadger(m, badgerDB, func(v interface{}) bool {
+	// 	return v == int64(123)
+	// })
 	// db.SyncFromBadgerByKey(m, badgerDB, 2, func(v interface{}) bool {
 	// 	return v == int64(123)
 	// })
 	// db.SyncFromBadgerByPrefix(m, badgerDB, "2", nil)
 
-	// db.RemoveToBadger(m, badgerDB)
+	// fmt.Println("-----------------------")
+	// fmt.Println("---", *m)
+	// fmt.Println("-----------------------")
+	// fmt.Println(m.Len())
+	// fmt.Println("-----------------------")
+	// fmt.Println(m.Get("1"))
+	// fmt.Println(m.Get(2))
+	// fmt.Println(m.Get(5))
+	// fmt.Println(m.Get(6))
 
-	fmt.Println("-----------------------")
-	fmt.Println("---", *m)
-	fmt.Println("-----------------------")
-	fmt.Println(m.Len())
-	fmt.Println("-----------------------")
-	fmt.Println(m.Get("1"))
-	fmt.Println(m.Get(2))
-	fmt.Println(m.Get(5))
-	fmt.Println(m.Get(6))
+	m, err := db.BadgerSearch(badgerDB, nil)
+	if err != nil {
+		panic(err)
+	}
+	for k, v := range m {
+		fmt.Printf("%#v, %#v\n", k, v)
+	}
+
+	// db.RemoveToBadger(m, badgerDB)
 }
