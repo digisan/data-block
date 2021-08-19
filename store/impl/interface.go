@@ -9,3 +9,9 @@ type Ikv interface {
 	OnConflict(f func(existing, coming interface{}) (bool, interface{})) func(existing, coming interface{}) (bool, interface{})
 	IsPersistent() bool
 }
+
+var prt = false
+
+func SetPrint(print bool) {
+	prt = print
+}

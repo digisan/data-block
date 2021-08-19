@@ -25,18 +25,10 @@ func (sm *SM) Len() int {
 
 func (sm *SM) Set(key, value interface{}) bool {
 	if sm != nil {
-		// switch k := key.(type) {
-		// case []byte:
-		// 	switch v := value.(type) {
-		// 	case []byte:
-		// 		((*sync.Map)(sm)).Store(string(k), string(v))
-		// 	default:
-		// 		((*sync.Map)(sm)).Store(string(k), value)
-		// 	}
-		// default:
-		// 	((*sync.Map)(sm)).Store(key, value)
-		// }
 		((*sync.Map)(sm)).Store(key, value)
+		if prt {
+			fmt.Printf("\n+++ [%v]: [%v] is set in SM\n", key, value)
+		}
 		return true
 	}
 	return false
@@ -92,7 +84,12 @@ func (sm *SM) Get(key interface{}) (interface{}, bool) {
 }
 
 func (sm *SM) Remove(key interface{}) {
-	((*sync.Map)(sm)).Delete(key)
+	if value, ok := sm.Get(key); ok {
+		((*sync.Map)(sm)).Delete(key)
+		if prt {
+			fmt.Printf("\n--- [%v]: [%v] is removed from SM\n", key, value)
+		}
+	}
 }
 
 func (sm *SM) Clear() {

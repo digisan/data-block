@@ -20,18 +20,10 @@ func (m *M) Len() int {
 
 func (m *M) Set(key, value interface{}) bool {
 	if m != nil {
-		// switch k := key.(type) {
-		// case []byte:
-		// 	switch v := value.(type) {
-		// 	case []byte:
-		// 		(*m)[string(k)] = string(v)
-		// 	default:
-		// 		(*m)[string(k)] = value
-		// 	}
-		// default:
-		// 	(*m)[key] = value
-		// }
 		(*m)[key] = value
+		if prt {
+			fmt.Printf("\n+++ [%v]: [%v] is set in M\n", key, value)
+		}
 		return true
 	}
 	return false
@@ -87,7 +79,12 @@ func (m *M) Get(key interface{}) (interface{}, bool) {
 }
 
 func (m *M) Remove(key interface{}) {
-	delete(*m, key)
+	if value, ok := m.Get(key); ok {
+		delete(*m, key)
+		if prt {
+			fmt.Printf("\n--- [%v]: [%v] is removed from M\n", key, value)
+		}
+	}
 }
 
 func (m *M) Clear() {

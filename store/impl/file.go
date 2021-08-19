@@ -38,16 +38,6 @@ func (fs *FileStore) Len() int {
 func (fs *FileStore) Set(key, value interface{}) bool {
 	if fs.dir != "" {
 
-		// switch k := key.(type) {
-		// case []byte:
-		// 	switch v := value.(type) {
-		// 	case []byte:
-		// 		key, value = string(k), string(v)
-		// 	default:
-		// 		key = string(k)
-		// 	}
-		// }
-
 		fullpath := filepath.Join(fs.dir, fmt.Sprint(key)) // full abs file name path without extension
 		ext := fs.ext                                      // extension with prefix '.', if empty, then no '.'
 		prevpath := ""
