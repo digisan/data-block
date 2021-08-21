@@ -118,7 +118,11 @@ func (sm *SM) IsPersistent() bool {
 
 ///////////////////////////////////////////////////////////////////
 
-func (sm *SM) FlushToBadger(db *badger.DB) {
+func (sm *SM) FlushToBadger(db *badger.DB) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, flushed nothing")
+	}
+
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
 
@@ -136,4 +140,6 @@ func (sm *SM) FlushToBadger(db *badger.DB) {
 		wb.Set(kBuf, vBuf)
 		return true
 	})
+
+	return nil
 }

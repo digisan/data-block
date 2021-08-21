@@ -135,7 +135,11 @@ func DBPrefix(input interface{}) (prefix byte, err error) {
 	return
 }
 
-func (m *M) FlushToBadger(db *badger.DB) {
+func (m *M) FlushToBadger(db *badger.DB) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, flushed nothing")
+	}
+
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
 
@@ -152,4 +156,6 @@ func (m *M) FlushToBadger(db *badger.DB) {
 		vBuf := append([]byte{vp}, []byte(fmt.Sprint(value))...)
 		wb.Set(kBuf, vBuf)
 	}
+
+	return nil
 }

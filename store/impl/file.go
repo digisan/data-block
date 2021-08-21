@@ -139,7 +139,11 @@ func (fs *FileStore) IsPersistent() bool {
 	return true
 }
 
-func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) {
+func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, flushed nothing")
+	}
+
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
 
@@ -167,4 +171,6 @@ func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) {
 		return true
 
 	}, nil)
+
+	return err
 }

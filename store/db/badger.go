@@ -54,6 +54,10 @@ func fetch(raw []byte) (result interface{}, err error) {
 }
 
 func RemoveToBadger(kv impl.Ikv, db *badger.DB) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, removed nothing")
+	}
+
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
 
@@ -85,6 +89,10 @@ func RemoveToBadger(kv impl.Ikv, db *badger.DB) error {
 }
 
 func BadgerSearch(db *badger.DB, vFilter func(v interface{}) bool) (map[interface{}]interface{}, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db is nil, found nothing")
+	}
+
 	m := impl.NewM()
 	err := SyncFromBadger(m, db, vFilter)
 	return (map[interface{}]interface{})(*m), err
@@ -92,6 +100,10 @@ func BadgerSearch(db *badger.DB, vFilter func(v interface{}) bool) (map[interfac
 
 // vFilter args number must be converted to [int64], [float64]
 func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(v interface{}) bool) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, sync nothing")
+	}
+
 	kv.Clear()
 	return db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -132,6 +144,10 @@ func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(v interface{}) bool
 }
 
 func BadgerSearchByKey(db *badger.DB, key interface{}, vFilter func(v interface{}) bool) (map[interface{}]interface{}, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db is nil, found nothing")
+	}
+
 	m := impl.NewM()
 	err := SyncFromBadgerByKey(m, db, key, vFilter)
 	return (map[interface{}]interface{})(*m), err
@@ -139,6 +155,10 @@ func BadgerSearchByKey(db *badger.DB, key interface{}, vFilter func(v interface{
 
 // vFilter args number must be converted to [int64], [float64]
 func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter func(v interface{}) bool) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, sync nothing")
+	}
+
 	kv.Clear()
 	return db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -200,6 +220,10 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter fu
 }
 
 func BadgerSearchByPrefix(db *badger.DB, prefix string, vFilter func(v interface{}) bool) (map[interface{}]interface{}, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db is nil, found nothing")
+	}
+
 	m := impl.NewM()
 	err := SyncFromBadgerByPrefix(m, db, prefix, vFilter)
 	return (map[interface{}]interface{})(*m), err
@@ -208,6 +232,10 @@ func BadgerSearchByPrefix(db *badger.DB, prefix string, vFilter func(v interface
 // only string key available for prefix search
 // vFilter args number must be converted to [int64], [float64]
 func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string, vFilter func(v interface{}) bool) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, sync nothing")
+	}
+
 	kv.Clear()
 	return db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
