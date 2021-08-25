@@ -2,13 +2,17 @@ package db
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/digisan/data-block/store/impl"
+	"github.com/digisan/gotk/filedir"
+	goi "github.com/digisan/gotk/io"
 	"github.com/pkg/errors"
 )
 
@@ -88,7 +92,7 @@ func RemoveToBadger(kv impl.Ikv, db *badger.DB) error {
 	return nil
 }
 
-func BadgerSearch(db *badger.DB, vFilter func(v interface{}) bool) (map[interface{}]interface{}, error) {
+func BadgerSearch(db *badger.DB, vFilter func(k, v interface{}) bool) (map[interface{}]interface{}, error) {
 	if db == nil {
 		return nil, fmt.Errorf("db is nil, found nothing")
 	}
@@ -99,7 +103,7 @@ func BadgerSearch(db *badger.DB, vFilter func(v interface{}) bool) (map[interfac
 }
 
 // vFilter args number must be converted to [int64], [float64]
-func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(v interface{}) bool) error {
+func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(k, v interface{}) bool) error {
 	if db == nil {
 		return fmt.Errorf("db is nil, sync nothing")
 	}
@@ -128,7 +132,7 @@ func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(v interface{}) bool
 					return errors.Wrap(err, "Value")
 				}
 
-				if vFilter != nil && !vFilter(realVal) {
+				if vFilter != nil && !vFilter(realKey, realVal) {
 					return nil
 				}
 
@@ -143,7 +147,7 @@ func SyncFromBadger(kv impl.Ikv, db *badger.DB, vFilter func(v interface{}) bool
 	})
 }
 
-func BadgerSearchByKey(db *badger.DB, key interface{}, vFilter func(v interface{}) bool) (map[interface{}]interface{}, error) {
+func BadgerSearchByKey(db *badger.DB, key interface{}, vFilter func(k, v interface{}) bool) (map[interface{}]interface{}, error) {
 	if db == nil {
 		return nil, fmt.Errorf("db is nil, found nothing")
 	}
@@ -154,7 +158,7 @@ func BadgerSearchByKey(db *badger.DB, key interface{}, vFilter func(v interface{
 }
 
 // vFilter args number must be converted to [int64], [float64]
-func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter func(v interface{}) bool) error {
+func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter func(k, v interface{}) bool) error {
 	if db == nil {
 		return fmt.Errorf("db is nil, sync nothing")
 	}
@@ -203,7 +207,7 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter fu
 						return errors.Wrap(err, "Value")
 					}
 
-					if vFilter != nil && !vFilter(realVal) {
+					if vFilter != nil && !vFilter(realKey, realVal) {
 						return nil
 					}
 
@@ -219,7 +223,7 @@ func SyncFromBadgerByKey(kv impl.Ikv, db *badger.DB, key interface{}, vFilter fu
 	})
 }
 
-func BadgerSearchByPrefix(db *badger.DB, prefix string, vFilter func(v interface{}) bool) (map[interface{}]interface{}, error) {
+func BadgerSearchByPrefix(db *badger.DB, prefix string, vFilter func(k, v interface{}) bool) (map[interface{}]interface{}, error) {
 	if db == nil {
 		return nil, fmt.Errorf("db is nil, found nothing")
 	}
@@ -231,7 +235,7 @@ func BadgerSearchByPrefix(db *badger.DB, prefix string, vFilter func(v interface
 
 // only string key available for prefix search
 // vFilter args number must be converted to [int64], [float64]
-func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string, vFilter func(v interface{}) bool) error {
+func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string, vFilter func(k, v interface{}) bool) error {
 	if db == nil {
 		return fmt.Errorf("db is nil, sync nothing")
 	}
@@ -259,7 +263,7 @@ func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string, vFilter f
 					return errors.Wrap(err, "Value")
 				}
 
-				if vFilter != nil && !vFilter(realVal) {
+				if vFilter != nil && !vFilter(realKey, realVal) {
 					return nil
 				}
 
@@ -272,4 +276,29 @@ func SyncFromBadgerByPrefix(kv impl.Ikv, db *badger.DB, prefix string, vFilter f
 		}
 		return nil
 	})
+}
+
+func BadgerDump(db *badger.DB, w io.Writer) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, dumped nothing")
+	}
+	m, err := BadgerSearch(db, nil)
+	if err != nil {
+		return errors.Wrap(err, "@BadgerDump")
+	}
+	for k, v := range m {
+		fmt.Fprintf(w, "%v --- %v\n", k, v)
+	}
+	return nil
+}
+
+func BadgerDumpFile(db *badger.DB, file string) error {
+	file, _ = filedir.AbsPath(file, false)
+	goi.MustCreateDir(filepath.Dir(file))
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		return errors.Wrap(err, "@BadgerDumpFile")
+	}
+	defer f.Close()
+	return BadgerDump(db, f)
 }

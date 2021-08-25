@@ -33,14 +33,14 @@ import (
 
 func TestSave(t *testing.T) {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	badgerDB, err := db.NewBadgerDB("./data/badger")
 	if err != nil {
 		panic(err)
 	}
 	defer badgerDB.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	kv := NewKV(true, true)
 	kv.AppendFS("./data/test_out", ".txt", true)
@@ -65,7 +65,7 @@ func TestSave(t *testing.T) {
 		for cnt := range kv.UnchangedTickerNotifier(ctx, 500, true) {
 			fmt.Println(" --- ", cnt)
 
-			kv.KVs[IdxM].(*impl.M).FlushToBadger(badgerDB)
+			kv.KVs[IdxM].(*impl.M).FlushToBadger(badgerDB) // real flush to persistent storage
 			// kv.KVs[IdxSM].(*impl.SM).FlushToBadger(badgerDB)
 			// kv.KVs[IdxFS].(*impl.FileStore).FlushToBadger(badgerDB, "txt")
 		}
