@@ -135,7 +135,31 @@ func DBPrefix(input interface{}) (prefix byte, err error) {
 	return
 }
 
-func (m *M) FlushToBadger(db *badger.DB) error {
+func (m *M) SyncToBadgerWriteBatch(wb *badger.WriteBatch) (err error) {
+	if wb == nil {
+		return fmt.Errorf("writebatch is nil, flushed nothing")
+	}
+
+	for key, value := range *m {
+		kp, e := DBPrefix(key)
+		if e != nil {
+			panic(errors.Wrap(e, "key type is not supported @ M FlushToBadger"))
+		}
+		vp, e := DBPrefix(value)
+		if e != nil {
+			panic(errors.Wrap(e, "value type is not supported @ M FlushToBadger"))
+		}
+		kBuf := append([]byte{kp}, []byte(fmt.Sprint(key))...)
+		vBuf := append([]byte{vp}, []byte(fmt.Sprint(value))...)
+		if err = wb.Set(kBuf, vBuf); err != nil {
+			break
+		}
+	}
+
+	return err
+}
+
+func (m *M) FlushToBadger(db *badger.DB) (err error) {
 	if db == nil {
 		return fmt.Errorf("db is nil, flushed nothing")
 	}
@@ -143,19 +167,5 @@ func (m *M) FlushToBadger(db *badger.DB) error {
 	wb := db.NewWriteBatch()
 	defer wb.Flush()
 
-	for key, value := range *m {
-		kp, err := DBPrefix(key)
-		if err != nil {
-			panic(errors.Wrap(err, "key type is not supported @ M FlushToBadger"))
-		}
-		vp, err := DBPrefix(value)
-		if err != nil {
-			panic(errors.Wrap(err, "value type is not supported @ M FlushToBadger"))
-		}
-		kBuf := append([]byte{kp}, []byte(fmt.Sprint(key))...)
-		vBuf := append([]byte{vp}, []byte(fmt.Sprint(value))...)
-		wb.Set(kBuf, vBuf)
-	}
-
-	return nil
+	return m.SyncToBadgerWriteBatch(wb)
 }

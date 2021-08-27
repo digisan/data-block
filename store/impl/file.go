@@ -139,13 +139,10 @@ func (fs *FileStore) IsPersistent() bool {
 	return true
 }
 
-func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) error {
-	if db == nil {
-		return fmt.Errorf("db is nil, flushed nothing")
+func (fs *FileStore) SyncToBadgerWriteBatch(wb *badger.WriteBatch, ext string) error {
+	if wb == nil {
+		return fmt.Errorf("writebatch is nil, flushed nothing")
 	}
-
-	wb := db.NewWriteBatch()
-	defer wb.Flush()
 
 	files, _, err := fd.WalkFileDir(fs.dir, false)
 	if err != nil {
@@ -159,18 +156,31 @@ func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) error {
 			p2 := strings.LastIndex(fn, ext)
 			ps := ti.FM([]int{p1, p2}, func(i, e int) bool { return e > -1 }, nil)
 			key := fn[:ti.Min(ps...)]
-			bytes, err := os.ReadFile(e)
-			if err != nil {
-				panic(err)
+			bytes, e := os.ReadFile(e)
+			if e != nil {
+				panic(e)
 			}
 
 			kBuf := append([]byte("s"), []byte(fmt.Sprint(key))...)
 			vBuf := append([]byte("s"), bytes...)
-			wb.Set(kBuf, vBuf)
+			if err = wb.Set(kBuf, vBuf); err != nil {
+				return false
+			}
 		}
 		return true
 
 	}, nil)
 
 	return err
+}
+
+func (fs *FileStore) FlushToBadger(db *badger.DB, ext string) error {
+	if db == nil {
+		return fmt.Errorf("db is nil, flushed nothing")
+	}
+
+	wb := db.NewWriteBatch()
+	defer wb.Flush()
+
+	return fs.SyncToBadgerWriteBatch(wb, ext)
 }
