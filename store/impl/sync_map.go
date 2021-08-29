@@ -92,6 +92,10 @@ func (sm *SM) Remove(key interface{}) {
 	}
 }
 
+func (sm *SM) Range(f func(key, value interface{}) bool) {
+	((*sync.Map)(sm)).Range(f)
+}
+
 func (sm *SM) Clear() {
 	keys := []interface{}{}
 	((*sync.Map)(sm)).Range(func(key, value interface{}) bool {

@@ -5,6 +5,7 @@ type Ikv interface {
 	Set(key, value interface{}) bool
 	Get(key interface{}) (interface{}, bool)
 	Remove(key interface{})
+	Range(f func(key, value interface{}) bool)
 	Clear()
 	OnConflict(f func(existing, coming interface{}) (bool, interface{})) func(existing, coming interface{}) (bool, interface{})
 	IsPersistent() bool

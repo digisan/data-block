@@ -113,6 +113,26 @@ func (fs *FileStore) Remove(key interface{}) {
 	}
 }
 
+func (fs *FileStore) Range(f func(key, value interface{}) bool) {
+	if files, _, err := fd.WalkFileDir(fs.dir, true); err == nil {
+		for _, file := range files {
+			bytes, err := os.ReadFile(file)
+			if err != nil {
+				fmt.Printf("%s cannot be read, [%v]\n", file, err)
+				continue
+			}
+			file = filepath.Base(file)
+			file = strings.TrimSuffix(file, filepath.Ext(file))
+			if p := strings.LastIndex(file, "("); p >= 0 {
+				file = file[:p]
+			}
+			if !f(file, string(bytes)) {
+				break
+			}
+		}
+	}
+}
+
 func (fs *FileStore) Clear() {
 	files, _, err := fd.WalkFileDir(fs.dir, false)
 	if err != nil {

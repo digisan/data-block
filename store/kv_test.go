@@ -89,6 +89,16 @@ func TestSave(t *testing.T) {
 	fmt.Println(kv.KVs[IdxFS].Get(1))
 }
 
+func TestRange(t *testing.T) {
+	kv := NewKV(true, true)
+	kv.AppendFS("./data/test_out", ".txt", true)
+
+	kv.KVs[IdxFS].Range(func(key, value interface{}) bool {
+		fmt.Println(key, value)
+		return true
+	})
+}
+
 func TestBadgerLoad(t *testing.T) {
 
 	badgerDB, err := db.NewBadgerDB("./data/badger")

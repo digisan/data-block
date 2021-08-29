@@ -87,6 +87,14 @@ func (m *M) Remove(key interface{}) {
 	}
 }
 
+func (m *M) Range(f func(key, value interface{}) bool) {
+	for k, v := range *m {
+		if !f(k, v) {
+			break
+		}
+	}
+}
+
 func (m *M) Clear() {
 	keys := []interface{}{}
 	for k := range *m {
